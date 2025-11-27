@@ -21,9 +21,8 @@ import { Button } from '@/components/ui/button';
 
 const serviceRequestSchema = z.object({
   serviceType: z.string().min(1, 'Please select a service type'),
-  templateType: z.enum(['template', 'custom'], {
-    required_error: 'Please select template vs custom',
-  }),
+  // ✅ Simplified enum: no required_error option (compatible with your Zod version)
+  templateType: z.enum(['template', 'custom']),
   projectComplexity: z.string().optional(),
   budgetRange: z.string().optional(),
   timeline: z.string().optional(),
@@ -60,18 +59,59 @@ export function ServiceRequestForm() {
   });
 
   async function onSubmit(values: ServiceRequestValues) {
-    // For now, just log and show a toast.
-    // Later we can connect this to a server action + email + DB.
-    console.log('Service request:', { ...values, files });
+    try {
+      const fileSummaries =
+        files && files.length > 0
+          ? Array.from(files).map((file) => ({
+              name: file.name,
+              size: file.size,
+            }))
+          : [];
 
-    toast.success('Request submitted', {
-      description:
-        'Thank you — BroByte will review your requirements and respond with a plan & quote.',
-    });
+      const response = await fetch('/api/service-request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...values,
+          files: fileSummaries,
+        }),
+      });
 
-    // Reset form & files
-    form.reset();
-    setFiles(null);
+      const data = await response.json();
+
+      if (!response.ok || !data.ok) {
+        throw new Error(data.message || 'Failed to submit service request');
+      }
+
+      toast.success('Request submitted', {
+        description:
+          'Thank you — BroByte will review your requirements and respond with a plan & quote.',
+      });
+
+      form.reset({
+        serviceType: '',
+        templateType: 'custom',
+        projectComplexity: '',
+        budgetRange: '',
+        timeline: '',
+        companyName: '',
+        contactName: '',
+        email: '',
+        phone: '',
+        integrations: '',
+        requirements: '',
+      });
+      setFiles(null);
+    } catch (error: any) {
+      console.error('Service request submit error:', error);
+      toast.error('Could not submit request', {
+        description:
+          error.message ||
+          'Something went wrong while sending your request. Please try again or contact us directly.',
+      });
+    }
   }
 
   return (
@@ -129,11 +169,12 @@ export function ServiceRequestForm() {
                     <button
                       type="button"
                       onClick={() => field.onChange('template')}
-                      className={`rounded-md border px-3 py-2 text-left ${
-                        field.value === 'template'
+                      className={
+                        'rounded-md border px-3 py-2 text-left ' +
+                        (field.value === 'template'
                           ? 'border-cyan-500 bg-cyan-500/10 text-cyan-100'
-                          : 'border-slate-700 bg-slate-950 text-slate-200'
-                      }`}
+                          : 'border-slate-700 bg-slate-950 text-slate-200')
+                      }
                     >
                       <span className="block font-medium">Starter template</span>
                       <span className="text-[11px] text-slate-400">
@@ -143,11 +184,12 @@ export function ServiceRequestForm() {
                     <button
                       type="button"
                       onClick={() => field.onChange('custom')}
-                      className={`rounded-md border px-3 py-2 text-left ${
-                        field.value === 'custom'
+                      className={
+                        'rounded-md border px-3 py-2 text-left ' +
+                        (field.value === 'custom'
                           ? 'border-cyan-500 bg-cyan-500/10 text-cyan-100'
-                          : 'border-slate-700 bg-slate-950 text-slate-200'
-                      }`}
+                          : 'border-slate-700 bg-slate-950 text-slate-200')
+                      }
                     >
                       <span className="block font-medium">Fully custom</span>
                       <span className="text-[11px] text-slate-400">
@@ -265,7 +307,9 @@ export function ServiceRequestForm() {
             name="contactName"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-xs text-slate-200">Contact person</FormLabel>
+                <FormLabel className="text-xs text-slate-200">
+                  Contact person
+                </FormLabel>
                 <FormControl>
                   <Input
                     {...field}
@@ -379,8 +423,8 @@ export function ServiceRequestForm() {
             className="mt-1 block w-full cursor-pointer rounded-md border border-dashed border-slate-700 bg-slate-950 px-3 py-2 text-[11px] text-slate-300 file:mr-2 file:rounded-md file:border-0 file:bg-slate-800 file:px-3 file:py-1 file:text-xs file:text-slate-100 hover:border-cyan-500"
           />
           <p className="text-[11px] text-slate-400">
-            You can attach requirement docs, sketches, or existing reports. We&apos;ll include them
-            in our review.
+            You can attach requirement docs, sketches, or existing reports. We&apos;ll include their
+            filenames in our internal summary for now.
           </p>
           {files && files.length > 0 && (
             <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[11px] text-slate-300">
