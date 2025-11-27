@@ -19,7 +19,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const parsed = quoteRequestSchema.parse(body);
 
-    const subject = Quote request from ${parsed.companyName} – ${parsed.projectType};
+    // ✅ IMPORTANT: Note the backticks (`) and normal hyphen (-)
+    const subject = Quote request from ${parsed.companyName} - ${parsed.projectType};
 
     const text = `
 Project type: ${parsed.projectType}
