@@ -19,14 +19,14 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const parsed = quoteRequestSchema.parse(body);
 
-    // ✅ Plain string concatenation – safe in any editor
+    // Very safe: no template literals, simple concat
     const subject =
       'Quote request from ' +
       parsed.companyName +
       ' - ' +
       parsed.projectType;
 
-    const text = (
+    const text =
       'Project type: ' + parsed.projectType + '\n' +
       'Budget range: ' + parsed.budgetRange + '\n' +
       'Billing preference: ' + parsed.billingPreference + '\n' +
@@ -34,18 +34,32 @@ export async function POST(request: NextRequest) {
       'Company: ' + parsed.companyName + '\n' +
       'Contact: ' + parsed.contactName + '\n' +
       'Email: ' + parsed.email + '\n\n' +
-      'Notes:\n' + parsed.notes
-    ).trim();
+      'Notes:\n' + parsed.notes;
 
-    const html = (
-      '<h2>Quote request from ' + parsed.companyName + '</h2>' +
-      '<p><strong>Project type:</strong> ' + parsed.projectType + '</p>' +
-      '<p><strong>Budget range:</strong> ' + parsed.budgetRange + '</p>' +
-      '<p><strong>Billing preference:</strong> ' + parsed.billingPreference + '</p>' +
-      '<p><strong>Payment mode:</strong> ' + parsed.paymentMode + '</p>' +
-      '<hr />' +
-      '<p><strong>Company:</strong> ' + parsed.companyName + '</p>' +
-      '<p><strong>Contact:</strong> ' + parsed.contactName + '</p>' +
-      '<p><strong>Email:</strong> ' + parsed.email + '</p>' +
-      '<hr />' +
-      '<p><strong>Notes:</strong></p>' +
+    // Simple HTML: just wrap the text in <pre>
+    const safeTextForHtml = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    const html =
+      '<pre style="white-space:pre-wrap;font-family:system-ui, -apple-system, BlinkMacSystemFont, \'Segoe UI\', sans-serif;">' +
+      safeTextForHtml +
+      '</pre>';
+
+    await sendBroByteEmail({
+      subject,
+      html,
+      text,
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (error: any) {
+    console.error('Quote request error:', error);
+    const message =
+      error.name === 'ZodError'
+        ? 'Invalid data submitted'
+        : 'Failed to submit quote request';
+    return NextResponse.json({ ok: false, message }, { status: 400 });
+  }
+}
