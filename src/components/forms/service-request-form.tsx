@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button';
 
 const serviceRequestSchema = z.object({
   serviceType: z.string().min(1, 'Please select a service type'),
-  // ✅ Simplified enum: no required_error option (compatible with your Zod version)
+  // Simple enum to match your Zod version
   templateType: z.enum(['template', 'custom']),
   projectComplexity: z.string().optional(),
   budgetRange: z.string().optional(),
@@ -79,10 +79,19 @@ export function ServiceRequestForm() {
         }),
       });
 
-      const data = await response.json();
+      const contentType = response.headers.get('content-type') || '';
+      let data: any = null;
 
-      if (!response.ok || !data.ok) {
-        throw new Error(data.message || 'Failed to submit service request');
+      // ✅ Only try to parse JSON if the response is actually JSON
+      if (contentType.includes('application/json')) {
+        data = await response.json();
+      }
+
+      if (!response.ok || !data?.ok) {
+        const message =
+          data?.message ||
+          Request failed with status ${response.status}. Please try again.;
+        throw new Error(message);
       }
 
       toast.success('Request submitted', {
@@ -109,7 +118,7 @@ export function ServiceRequestForm() {
       toast.error('Could not submit request', {
         description:
           error.message ||
-          'Something went wrong while sending your request. Please try again or contact us directly.',
+          'Something went wrong on the server. Please try again later or contact us directly.',
       });
     }
   }

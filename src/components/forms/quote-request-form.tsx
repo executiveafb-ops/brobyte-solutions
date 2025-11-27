@@ -50,24 +50,52 @@ export function QuoteRequestForm() {
   });
 
   async function onSubmit(values: QuoteRequestValues) {
-    // For now, just log & toast. Later: plug into server action + email + DB + payment init.
-    console.log('Quote request:', values);
+    try {
+      const response = await fetch('/api/quote-request', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(values),
+      });
 
-    toast.success('Quote request submitted', {
-      description:
-        'BroByte will prepare a structured quote and share payment options with you shortly.',
-    });
+      const contentType = response.headers.get('content-type') || '';
+      let data: any = null;
 
-    form.reset({
-      projectType: '',
-      budgetRange: '',
-      billingPreference: 'one-time',
-      paymentMode: 'bank-transfer',
-      companyName: '',
-      contactName: '',
-      email: '',
-      notes: '',
-    });
+      if (contentType.includes('application/json')) {
+        data = await response.json();
+      }
+
+      if (!response.ok || !data?.ok) {
+        const message =
+          data?.message ||
+          Quote request failed with status ${response.status}. Please try again.;
+        throw new Error(message);
+      }
+
+      toast.success('Quote request submitted', {
+        description:
+          'BroByte will prepare a structured quote and share payment options with you shortly.',
+      });
+
+      form.reset({
+        projectType: '',
+        budgetRange: '',
+        billingPreference: 'one-time',
+        paymentMode: 'bank-transfer',
+        companyName: '',
+        contactName: '',
+        email: '',
+        notes: '',
+      });
+    } catch (error: any) {
+      console.error('Quote request submit error:', error);
+      toast.error('Could not submit quote request', {
+        description:
+          error.message ||
+          'Something went wrong on the server. Please try again later or contact us directly.',
+      });
+    }
   }
 
   return (
@@ -99,7 +127,9 @@ export function QuoteRequestForm() {
                     <option value="website">Website / landing page / web app</option>
                     <option value="ai">AI chatbot / automation / assistant</option>
                     <option value="video">Video &amp; content package</option>
-                    <option value="bundle">Bundle (system + AI + website + content)</option>
+                    <option value="bundle">
+                      Bundle (system + AI + website + content)
+                    </option>
                   </select>
                 </FormControl>
                 <FormDescription className="text-[11px] text-slate-400">
@@ -154,11 +184,12 @@ export function QuoteRequestForm() {
                     <button
                       type="button"
                       onClick={() => field.onChange('one-time')}
-                      className={`rounded-md border px-3 py-2 text-left ${
-                        field.value === 'one-time'
+                      className={
+                        'rounded-md border px-3 py-2 text-left ' +
+                        (field.value === 'one-time'
                           ? 'border-cyan-500 bg-cyan-500/10 text-cyan-100'
-                          : 'border-slate-700 bg-slate-950 text-slate-200'
-                      }`}
+                          : 'border-slate-700 bg-slate-950 text-slate-200')
+                      }
                     >
                       <span className="block font-medium">One-time project</span>
                       <span className="text-[11px] text-slate-400">
@@ -168,11 +199,12 @@ export function QuoteRequestForm() {
                     <button
                       type="button"
                       onClick={() => field.onChange('retainer')}
-                      className={`rounded-md border px-3 py-2 text-left ${
-                        field.value === 'retainer'
+                      className={
+                        'rounded-md border px-3 py-2 text-left ' +
+                        (field.value === 'retainer'
                           ? 'border-cyan-500 bg-cyan-500/10 text-cyan-100'
-                          : 'border-slate-700 bg-slate-950 text-slate-200'
-                      }`}
+                          : 'border-slate-700 bg-slate-950 text-slate-200')
+                      }
                     >
                       <span className="block font-medium">Monthly partnership</span>
                       <span className="text-[11px] text-slate-400">
@@ -201,7 +233,9 @@ export function QuoteRequestForm() {
                   >
                     <option value="bank-transfer">Bank transfer</option>
                     <option value="card">Debit / credit card</option>
-                    <option value="mobile-money">Mobile money / local gateways</option>
+                    <option value="mobile-money">
+                      Mobile money / local gateways
+                    </option>
                     <option value="mixed">Mix of methods</option>
                   </select>
                 </FormControl>
