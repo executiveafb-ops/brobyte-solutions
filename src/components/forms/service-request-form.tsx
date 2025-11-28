@@ -1,7 +1,6 @@
-// src/components/forms/service-request-form.tsx
+// src/components/forms/quote-request-form.tsx
 'use client';
 
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -20,63 +19,44 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 
-const serviceRequestSchema = z.object({
-  serviceType: z.string().min(1, 'Please select a service type'),
-  templateType: z.enum(['template', 'custom']),
-  projectComplexity: z.string().optional(),
-  budgetRange: z.string().optional(),
-  timeline: z.string().optional(),
-  companyName: z.string().min(1, 'Company or brand name is required'),
+const quoteRequestSchema = z.object({
+  projectType: z.string().min(1, 'Please select what this quote is for'),
+  budgetRange: z.string().min(1, 'Please choose a rough budget range'),
+  billingPreference: z.string().min(1, 'Please select a billing preference'),
+  paymentMode: z.string().min(1, 'Please choose how you prefer to pay'),
+  companyName: z.string().min(1, 'Company / brand name is required'),
   contactName: z.string().min(1, 'Contact person name is required'),
   email: z.string().email('Enter a valid email address'),
-  phone: z.string().optional(),
-  integrations: z.string().optional(),
-  requirements: z
+  notes: z
     .string()
-    .min(20, 'Please describe your requirements in at least a few sentences'),
+    .min(10, 'Please share at least a short outline of what this quote should cover'),
 });
 
-type ServiceRequestValues = z.infer<typeof serviceRequestSchema>;
+type QuoteRequestValues = z.infer<typeof quoteRequestSchema>;
 
-export function ServiceRequestForm() {
-  const [files, setFiles] = useState<FileList | null>(null);
-
-  const form = useForm<ServiceRequestValues>({
-    resolver: zodResolver(serviceRequestSchema),
+export function QuoteRequestForm() {
+  const form = useForm<QuoteRequestValues>({
+    resolver: zodResolver(quoteRequestSchema),
     defaultValues: {
-      serviceType: '',
-      templateType: 'custom',
-      projectComplexity: '',
+      projectType: '',
       budgetRange: '',
-      timeline: '',
+      billingPreference: 'one-time',
+      paymentMode: 'bank-transfer',
       companyName: '',
       contactName: '',
       email: '',
-      phone: '',
-      integrations: '',
-      requirements: '',
+      notes: '',
     },
   });
 
-  async function onSubmit(values: ServiceRequestValues) {
+  async function onSubmit(values: QuoteRequestValues) {
     try {
-      const fileSummaries =
-        files && files.length > 0
-          ? Array.from(files).map((file) => ({
-              name: file.name,
-              size: file.size,
-            }))
-          : [];
-
-      const response = await fetch('/api/service-request', {
+      const response = await fetch('/api/quote-request', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...values,
-          files: fileSummaries,
-        }),
+        body: JSON.stringify(values),
       });
 
       let data: any = null;
@@ -84,29 +64,39 @@ export function ServiceRequestForm() {
       try {
         data = await response.json();
       } catch (error) {
-        console.error('Non-JSON response from /api/service-request:', error);
+        console.error('Non-JSON response from /api/quote-request:', error);
       }
 
       if (!response.ok || !data?.ok) {
         const message =
           (data && data.message) ||
-          Request failed with status ${response.status}. Please try again.;
+          'Quote request failed with status ' +
+            response.status +
+            '. Please try again.';
         throw new Error(message);
       }
 
-      toast.success('Request submitted', {
+      toast.success('Quote request submitted', {
         description:
-          'Thank you — BroByte will review your requirements and respond with a plan & quote.',
+          'BroByte will prepare a structured quote and share payment options with you shortly.',
       });
 
-      form.reset();
-      setFiles(null);
+      form.reset({
+        projectType: '',
+        budgetRange: '',
+        billingPreference: 'one-time',
+        paymentMode: 'bank-transfer',
+        companyName: '',
+        contactName: '',
+        email: '',
+        notes: '',
+      });
     } catch (error: any) {
-      console.error('Service request submit error:', error);
-      toast.error('Could not submit request', {
+      console.error('Quote request submit error:', error);
+      toast.error('Could not submit quote request', {
         description:
           error?.message ||
-          'Something went wrong while sending your request. Please try again or contact us directly.',
+          'Something went wrong while sending your quote request. Please try again or contact us directly.',
       });
     }
   }
@@ -114,120 +104,42 @@ export function ServiceRequestForm() {
   return (
     <Form {...form}>
       <form
-        className="space-y-5"
         onSubmit={form.handleSubmit(onSubmit)}
+        className="space-y-5"
         noValidate
       >
-        {/* SERVICE TYPE + TEMPLATE VS CUSTOM */}
+        {/* PROJECT TYPE + BUDGET */}
         <div className="grid gap-4 md:grid-cols-2">
           <FormField
             control={form.control}
-            name="serviceType"
+            name="projectType"
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="text-xs text-slate-200">
-                  What do you need help with?
-                </FormLabel>
-                <FormControl>
-                  <select
-                    {...field}
-                    className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100 outline-none ring-0 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
-                  >
-                    <option value="">Select service type</option>
-                    <option value="workflow">
-                      Custom office-workflow / stock &amp; accounting system
-                    </option>
-                    <option value="website">Website / web app</option>
-                    <option value="ai">
-                      AI chatbot / automation / internal assistant
-                    </option>
-                    <option value="video">
-                      Video editing / content system
-                    </option>
-                    <option value="multiple">Combination of several</option>
-                  </select>
-                </FormControl>
-                <FormDescription className="text-[11px] text-slate-400">
-                  You can choose &quot;Combination&quot; if your project spans multiple
-                  areas.
-                </FormDescription>
-                <FormMessage className="text-[11px]" />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="templateType"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs text-slate-200">
-                  Template vs fully custom
-                </FormLabel>
-                <FormControl>
-                  <div className="mt-1 grid grid-cols-2 gap-2 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => field.onChange('template')}
-                      className={`rounded-md border px-3 py-2 text-left ${
-                        field.value === 'template'
-                          ? 'border-cyan-500 bg-cyan-500/10 text-cyan-100'
-                          : 'border-slate-700 bg-slate-950 text-slate-200'
-                      }`}
-                    >
-                      <span className="block font-medium">
-                        Starter template
-                      </span>
-                      <span className="text-[11px] text-slate-400">
-                        Faster, opinionated setup with tweaks.
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => field.onChange('custom')}
-                      className={`rounded-md border px-3 py-2 text-left ${
-                        field.value === 'custom'
-                          ? 'border-cyan-500 bg-cyan-500/10 text-cyan-100'
-                          : 'border-slate-700 bg-slate-950 text-slate-200'
-                      }`}
-                    >
-                      <span className="block font-medium">Fully custom</span>
-                      <span className="text-[11px] text-slate-400">
-                        Tailored flows, deep integration, long-term roadmap.
-                      </span>
-                    </button>
-                  </div>
-                </FormControl>
-                <FormMessage className="text-[11px]" />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        {/* COMPLEXITY / BUDGET / TIMELINE */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <FormField
-            control={form.control}
-            name="projectComplexity"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs text-slate-200">
-                  Project complexity (optional)
+                  This quote is for
                 </FormLabel>
                 <FormControl>
                   <select
                     {...field}
                     className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
                   >
-                    <option value="">Select complexity</option>
-                    <option value="light">Light (MVP / small scope)</option>
-                    <option value="standard">Standard business system</option>
-                    <option value="advanced">Advanced / multi-team</option>
-                    <option value="enterprise">
-                      Enterprise / multi-country
+                    <option value="">Select project type</option>
+                    <option value="workflow">
+                      Custom office-workflow / stock &amp; accounting system
+                    </option>
+                    <option value="website">
+                      Website / landing page / web app
+                    </option>
+                    <option value="ai">AI chatbot / automation / assistant</option>
+                    <option value="video">Video &amp; content package</option>
+                    <option value="bundle">
+                      Bundle (system + AI + website + content)
                     </option>
                   </select>
                 </FormControl>
+                <FormDescription className="text-[11px] text-slate-400">
+                  This helps us assign the right BroByte team from the start.
+                </FormDescription>
                 <FormMessage className="text-[11px]" />
               </FormItem>
             )}
@@ -239,7 +151,7 @@ export function ServiceRequestForm() {
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="text-xs text-slate-200">
-                  Budget range (optional)
+                  Rough budget range
                 </FormLabel>
                 <FormControl>
                   <select
@@ -254,8 +166,59 @@ export function ServiceRequestForm() {
                   </select>
                 </FormControl>
                 <FormDescription className="text-[11px] text-slate-400">
-                  A rough range is enough — we&apos;ll refine after scoping.
+                  Exact numbers can come later — a range keeps recommendations
+                  realistic.
                 </FormDescription>
+                <FormMessage className="text-[11px]" />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {/* BILLING & PAYMENT */}
+        <div className="grid gap-4 md:grid-cols-2">
+          <FormField
+            control={form.control}
+            name="billingPreference"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs text-slate-200">
+                  Billing preference
+                </FormLabel>
+                <FormControl>
+                  <div className="mt-1 grid grid-cols-2 gap-2 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => field.onChange('one-time')}
+                      className={`rounded-md border px-3 py-2 text-left ${
+                        field.value === 'one-time'
+                          ? 'border-cyan-500 bg-cyan-500/10 text-cyan-100'
+                          : 'border-slate-700 bg-slate-950 text-slate-200'
+                      }`}
+                    >
+                      <span className="block font-medium">One-time project</span>
+                      <span className="text-[11px] text-slate-400">
+                        Fixed scope, defined deliverables.
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => field.onChange('retainer')}
+                      className={`rounded-md border px-3 py-2 text-left ${
+                        field.value === 'retainer'
+                          ? 'border-cyan-500 bg-cyan-500/10 text-cyan-100'
+                          : 'border-slate-700 bg-slate-950 text-slate-200'
+                      }`}
+                    >
+                      <span className="block font-medium">
+                        Monthly partnership
+                      </span>
+                      <span className="text-[11px] text-slate-400">
+                        Ongoing work, roadmap, and support.
+                      </span>
+                    </button>
+                  </div>
+                </FormControl>
                 <FormMessage className="text-[11px]" />
               </FormItem>
             )}
@@ -263,19 +226,29 @@ export function ServiceRequestForm() {
 
           <FormField
             control={form.control}
-            name="timeline"
+            name="paymentMode"
             render={({ field }) => (
               <FormItem>
                 <FormLabel className="text-xs text-slate-200">
-                  Ideal go-live timeline (optional)
+                  Preferred payment mode
                 </FormLabel>
                 <FormControl>
-                  <Input
+                  <select
                     {...field}
-                    placeholder="e.g. 4–8 weeks, Q1 2026, ASAP"
-                    className="mt-1 h-8 border-slate-700 bg-slate-950 text-xs text-slate-100"
-                  />
+                    className="mt-1 w-full rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100 outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                  >
+                    <option value="bank-transfer">Bank transfer</option>
+                    <option value="card">Debit / credit card</option>
+                    <option value="mobile-money">
+                      Mobile money / local gateways
+                    </option>
+                    <option value="mixed">Mix of methods</option>
+                  </select>
                 </FormControl>
+                <FormDescription className="text-[11px] text-slate-400">
+                  We&apos;ll tailor the invoice / checkout links to match this
+                  preference.
+                </FormDescription>
                 <FormMessage className="text-[11px]" />
               </FormItem>
             )}
@@ -315,7 +288,7 @@ export function ServiceRequestForm() {
                 <FormControl>
                   <Input
                     {...field}
-                    placeholder="Who should we speak with?"
+                    placeholder="Who will review the quote?"
                     className="mt-1 h-8 border-slate-700 bg-slate-950 text-xs text-slate-100"
                   />
                 </FormControl>
@@ -325,62 +298,19 @@ export function ServiceRequestForm() {
           />
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs text-slate-200">
-                  Work email
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    type="email"
-                    placeholder="you@company.com"
-                    className="mt-1 h-8 border-slate-700 bg-slate-950 text-xs text-slate-100"
-                  />
-                </FormControl>
-                <FormMessage className="text-[11px]" />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="phone"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs text-slate-200">
-                  Phone / WhatsApp (optional)
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    placeholder="+880..."
-                    className="mt-1 h-8 border-slate-700 bg-slate-950 text-xs text-slate-100"
-                  />
-                </FormControl>
-                <FormMessage className="text-[11px]" />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        {/* INTEGRATIONS */}
         <FormField
           control={form.control}
-          name="integrations"
+          name="email"
           render={({ field }) => (
             <FormItem>
               <FormLabel className="text-xs text-slate-200">
-                Integrations (optional)
+                Email for quote &amp; invoice
               </FormLabel>
               <FormControl>
                 <Input
                   {...field}
-                  placeholder="e.g. existing ERP, payment gateway, messaging tools"
+                  type="email"
+                  placeholder="you@company.com"
                   className="mt-1 h-8 border-slate-700 bg-slate-950 text-xs text-slate-100"
                 />
               </FormControl>
@@ -389,57 +319,32 @@ export function ServiceRequestForm() {
           )}
         />
 
-        {/* REQUIREMENTS */}
+        {/* NOTES */}
         <FormField
           control={form.control}
-          name="requirements"
+          name="notes"
           render={({ field }) => (
             <FormItem>
               <FormLabel className="text-xs text-slate-200">
-                Describe what you need BroByte to build
+                Anything specific this quote should include?
               </FormLabel>
               <FormControl>
                 <Textarea
                   {...field}
-                  rows={5}
-                  placeholder="Share your current workflow, pain points, and what a successful solution would look like for your team."
+                  rows={4}
+                  placeholder="For example: multi-language support, data migration, specific AI use-cases, content volume, or payment schedule."
                   className="mt-1 border-slate-700 bg-slate-950 text-xs text-slate-100"
                 />
               </FormControl>
               <FormDescription className="text-[11px] text-slate-400">
-                Don&apos;t worry about perfect wording — write in your own
-                language and we&apos;ll structure it.
+                The more context you share, the more precise and realistic our
+                quote will be.
               </FormDescription>
               <FormMessage className="text-[11px]" />
             </FormItem>
           )}
         />
 
-        {/* FILE UPLOAD (STUB) */}
-        <div className="space-y-1 text-xs">
-          <label className="text-xs font-medium text-slate-200">
-            Attach any documents (optional)
-          </label>
-          <input
-            type="file"
-            multiple
-            onChange={(event) => setFiles(event.target.files)}
-            className="mt-1 block w-full cursor-pointer rounded-md border border-dashed border-slate-700 bg-slate-950 px-3 py-2 text-[11px] text-slate-300 file:mr-2 file:rounded-md file:border-0 file:bg-slate-800 file:px-3 file:py-1 file:text-xs file:text-slate-100 hover:border-cyan-500"
-          />
-          <p className="text-[11px] text-slate-400">
-            You can attach requirement docs, sketches, or existing reports.
-            We&apos;ll include their filenames in our internal summary for now.
-          </p>
-          {files && files.length > 0 && (
-            <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[11px] text-slate-300">
-              {Array.from(files).map((file) => (
-                <li key={file.name}>{file.name}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {/* SUBMIT */}
         <div className="flex items-center justify-between pt-2">
           <Button
             type="submit"
@@ -447,13 +352,14 @@ export function ServiceRequestForm() {
             className="rounded-full px-6"
             disabled={form.formState.isSubmitting}
           >
-            {form.formState.isSubmitting ? 'Submitting…' : 'Submit request'}
+            {form.formState.isSubmitting ? 'Sending…' : 'Request structured quote'}
           </Button>
           <p className="text-[11px] text-slate-400">
-            We usually respond within{' '}
+            Typical turnaround:{' '}
             <span className="font-medium text-slate-200">
-              1–3 business hours.
+              1–2 business days
             </span>
+            .
           </p>
         </div>
       </form>
