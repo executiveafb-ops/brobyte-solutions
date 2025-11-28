@@ -53,7 +53,6 @@ Company: ${parsed.companyName}
 Contact: ${parsed.contactName}
 Email: ${parsed.email}
 Phone/WhatsApp: ${parsed.phone || 'Not specified'}
-
 Integrations: ${parsed.integrations || 'Not specified'}
 
 Requirements:
@@ -61,42 +60,57 @@ ${parsed.requirements}
 
 Files:
 ${filesSummary}
-`.trim();
+    `.trim();
 
     const html = `
       <h2>New service request from ${parsed.companyName}</h2>
+
       <p><strong>Service type:</strong> ${parsed.serviceType}</p>
       <p><strong>Template vs custom:</strong> ${parsed.templateType}</p>
       <p><strong>Complexity:</strong> ${parsed.projectComplexity || 'Not specified'}</p>
       <p><strong>Budget range:</strong> ${parsed.budgetRange || 'Not specified'}</p>
       <p><strong>Timeline:</strong> ${parsed.timeline || 'Not specified'}</p>
+
       <hr />
+
       <p><strong>Company:</strong> ${parsed.companyName}</p>
       <p><strong>Contact:</strong> ${parsed.contactName}</p>
       <p><strong>Email:</strong> ${parsed.email}</p>
-      <p><strong>Phone / WhatsApp:</strong> ${parsed.phone || 'Not specified'}</p>
-      <p><strong>Integrations:</strong> ${parsed.integrations || 'Not specified'}</p>
+      <p><strong>Phone / WhatsApp:</strong> ${
+        parsed.phone || 'Not specified'
+      }</p>
+      <p><strong>Integrations:</strong> ${
+        parsed.integrations || 'Not specified'
+      }</p>
+
       <hr />
+
       <p><strong>Requirements:</strong></p>
-      <pre style="white-space:pre-wrap;font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">${parsed.requirements}</pre>
+      <pre style="white-space:pre-wrap;font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">${
+        parsed.requirements
+      }</pre>
+
       <hr />
+
       <p><strong>Files (names only, no upload yet):</strong></p>
       <pre style="white-space:pre-wrap;font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">${filesSummary}</pre>
     `.trim();
 
     await sendBroByteEmail({
       subject,
-      html,
       text,
+      html,
     });
 
     return NextResponse.json({ ok: true });
   } catch (error: any) {
     console.error('Service request error:', error);
+
     const message =
-      error.name === 'ZodError'
+      error?.name === 'ZodError'
         ? 'Invalid data submitted'
         : 'Failed to submit service request';
+
     return NextResponse.json({ ok: false, message }, { status: 400 });
   }
 }
