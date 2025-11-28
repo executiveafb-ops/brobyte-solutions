@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { sendBroByteEmail } from '@/lib/email';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 const quoteRequestSchema = z.object({
   projectType: z.string().min(1),
   budgetRange: z.string().min(1),
@@ -11,77 +14,62 @@ const quoteRequestSchema = z.object({
   companyName: z.string().min(1),
   contactName: z.string().min(1),
   email: z.string().email(),
-  notes: z.string().min(10),
+  phone: z.string().optional(),
+  requirements: z.string().min(10),
 });
+
+export async function GET() {
+  return NextResponse.json(
+    { ok: false, message: 'Use POST for quote requests.' },
+    { status: 405 }
+  );
+}
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const parsed = quoteRequestSchema.parse(body);
 
-    // ✅ NO template literals, NO smart dash — only simple strings
-    const subject =
-      'Quote request from ' +
-      parsed.companyName +
-      ' - ' +
-      parsed.projectType;
+    // 📛 FIXED — Subject must be EXACTLY this
+    const subject = 'Quote request';
 
-    const text =
-      'Project type: ' +
-      parsed.projectType +
-      '\n' +
-      'Budget range: ' +
-      parsed.budgetRange +
-      '\n' +
-      'Billing preference: ' +
-      parsed.billingPreference +
-      '\n' +
-      'Payment mode: ' +
-      parsed.paymentMode +
-      '\n\n' +
-      'Company: ' +
-      parsed.companyName +
-      '\n' +
-      'Contact: ' +
-      parsed.contactName +
-      '\n' +
-      'Email: ' +
-      parsed.email +
-      '\n\n' +
-      'Notes:\n' +
-      parsed.notes;
+    const text = `
+Project type: ${parsed.projectType}
+Budget range: ${parsed.budgetRange}
+Billing preference: ${parsed.billingPreference}
+Payment mode: ${parsed.paymentMode}
 
-    const html =
-      '<h2>Quote request from ' +
-      parsed.companyName +
-      '</h2>' +
-      '<p><strong>Project type:</strong> ' +
-      parsed.projectType +
-      '</p>' +
-      '<p><strong>Budget range:</strong> ' +
-      parsed.budgetRange +
-      '</p>' +
-      '<p><strong>Billing preference:</strong> ' +
-      parsed.billingPreference +
-      '</p>' +
-      '<p><strong>Payment mode:</strong> ' +
-      parsed.paymentMode +
-      '</p>' +
-      '<hr />' +
-      '<p><strong>Company:</strong> ' +
-      parsed.companyName +
-      '</p>' +
-      '<p><strong>Contact:</strong> ' +
-      parsed.contactName +
-      '</p>' +
-      '<p><strong>Email:</strong> ' +
-      parsed.email +
-      '</p>' +
-      '<hr />' +
-      '<p><strong>Notes:</strong></p>' +
-      '<pre style="white-space:pre-wrap;font-family:system-ui, -apple-system, BlinkMacSystemFont, \'Segoe UI\', sans-serif;">' +
-      parsed.notes +
-      '</pre>';
+Company: ${parsed.companyName}
+Contact: ${parsed.contactName}
+Email: ${parsed.email}
+Phone/WhatsApp: ${parsed.phone || 'Not specified'}
+
+Requirements:
+${parsed.requirements}
+    `.trim();
+
+    const html = `
+      <h2>New quote request from ${parsed.companyName}</h2>
+
+      <p><strong>Project type:</strong> ${parsed.projectType}</p>
+      <p><strong>Budget range:</strong> ${parsed.budgetRange}</p>
+      <p><strong>Billing preference:</strong> ${parsed.billingPreference}</p>
+      <p><strong>Payment mode:</strong> ${parsed.paymentMode}</p>
+
+      <hr />
+
+      <p><strong>Company:</strong> ${parsed.companyName}</p>
+      <p><strong>Contact person:</strong> ${parsed.contactName}</p>
+      <p><strong>Email:</strong> ${parsed.email}</p>
+      <p><strong>Phone / WhatsApp:</strong> ${parsed.phone || 'Not specified'}</p>
+
+      <hr />
+
+      <p><strong>Requirements:</strong></p>
+      <pre style="white-space:pre-wrap;font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+${parsed.requirements}
+      </pre>
+    `.trim();
 
     await sendBroByteEmail({
       subject,
