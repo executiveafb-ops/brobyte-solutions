@@ -89,8 +89,10 @@ export function ServiceRequestForm() {
 
       if (!response.ok || !data?.ok) {
         const message =
-          data?.message ||
+          data?.message ??
           Request failed with status ${response.status}. Please try again.;
+        // Or as a single line if you prefer:
+        // const message = data?.message ?? Request failed with status ${response.status}. Please try again.;
         throw new Error(message);
       }
 
