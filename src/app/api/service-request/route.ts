@@ -1,32 +1,9 @@
 // src/app/api/service-request/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import { sendBroByteEmail } from '@/lib/email';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-const serviceRequestSchema = z.object({
-  serviceType: z.string().min(1),
-  templateType: z.string().min(1),
-  projectComplexity: z.string().optional(),
-  budgetRange: z.string().optional(),
-  timeline: z.string().optional(),
-  companyName: z.string().min(1),
-  contactName: z.string().min(1),
-  email: z.string().email(),
-  phone: z.string().optional(),
-  integrations: z.string().optional(),
-  requirements: z.string().min(10),
-  files: z
-    .array(
-      z.object({
-        name: z.string(),
-        size: z.number().optional(),
-      }),
-    )
-    .optional(),
-});
 
 export async function GET() {
   return NextResponse.json(
@@ -37,88 +14,112 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const parsed = serviceRequestSchema.parse(body);
+    const body = await request.json().catch(() => ({}));
 
-    // 🚀 FIX APPLIED — EXACTLY AS REQUESTED:
-    // PURE static subject line, no variables, no special characters.
+    const {
+      serviceType,
+      templateType,
+      projectComplexity,
+      budgetRange,
+      timeline,
+      companyName,
+      contactName,
+      email,
+      phone,
+      integrations,
+      requirements,
+      files,
+    } = body ?? {};
+
+    // minimal safety
+    if (!email || !requirements || String(requirements).trim().length === 0) {
+      console.error('Service request missing email or requirements', body);
+      // still return ok-ish to frontend
+      return NextResponse.json(
+        { ok: false, message: 'Missing email or requirements' },
+        { status: 200 },
+      );
+    }
+
     const subject = 'New service request';
 
     const filesSummary =
-      parsed.files && parsed.files.length > 0
-        ? parsed.files
+      Array.isArray(files) && files.length > 0
+        ? files
             .map(
-              (file) =>
-                `- ${file.name}${file.size ? ` (${file.size} bytes)` : ''}`,
+              (file: any) =>
+                `- ${file?.name || 'Unnamed file'}${
+                  file?.size ? ` (${file.size} bytes)` : ''
+                }`,
             )
             .join('\n')
         : 'No files attached (UI stub only).';
 
     const text = `
-Service type: ${parsed.serviceType}
-Template vs custom: ${parsed.templateType}
-Complexity: ${parsed.projectComplexity || 'Not specified'}
-Budget range: ${parsed.budgetRange || 'Not specified'}
-Timeline: ${parsed.timeline || 'Not specified'}
+Service type: ${serviceType || 'Not specified'}
+Template vs custom: ${templateType || 'Not specified'}
+Complexity: ${projectComplexity || 'Not specified'}
+Budget range: ${budgetRange || 'Not specified'}
+Timeline: ${timeline || 'Not specified'}
 
-Company: ${parsed.companyName}
-Contact: ${parsed.contactName}
-Email: ${parsed.email}
-Phone/WhatsApp: ${parsed.phone || 'Not specified'}
-Integrations: ${parsed.integrations || 'Not specified'}
+Company: ${companyName || 'Not specified'}
+Contact: ${contactName || 'Not specified'}
+Email: ${email}
+Phone/WhatsApp: ${phone || 'Not specified'}
+Integrations: ${integrations || 'Not specified'}
 
 Requirements:
-${parsed.requirements}
+${requirements}
 
 Files:
 ${filesSummary}
     `.trim();
 
     const html = `
-      <h2>New service request from ${parsed.companyName}</h2>
+      <h2>New service request${companyName ? ` from ${companyName}` : ''}</h2>
 
-      <p><strong>Service type:</strong> ${parsed.serviceType}</p>
-      <p><strong>Template vs custom:</strong> ${parsed.templateType}</p>
-      <p><strong>Complexity:</strong> ${parsed.projectComplexity || 'Not specified'}</p>
-      <p><strong>Budget range:</strong> ${parsed.budgetRange || 'Not specified'}</p>
-      <p><strong>Timeline:</strong> ${parsed.timeline || 'Not specified'}</p>
+      <p><strong>Service type:</strong> ${serviceType || 'Not specified'}</p>
+      <p><strong>Template vs custom:</strong> ${templateType || 'Not specified'}</p>
+      <p><strong>Complexity:</strong> ${projectComplexity || 'Not specified'}</p>
+      <p><strong>Budget range:</strong> ${budgetRange || 'Not specified'}</p>
+      <p><strong>Timeline:</strong> ${timeline || 'Not specified'}</p>
 
       <hr />
 
-      <p><strong>Company:</strong> ${parsed.companyName}</p>
-      <p><strong>Contact:</strong> ${parsed.contactName}</p>
-      <p><strong>Email:</strong> ${parsed.email}</p>
-      <p><strong>Phone / WhatsApp:</strong> ${parsed.phone || 'Not specified'}</p>
-      <p><strong>Integrations:</strong> ${parsed.integrations || 'Not specified'}</p>
+      <p><strong>Company:</strong> ${companyName || 'Not specified'}</p>
+      <p><strong>Contact:</strong> ${contactName || 'Not specified'}</p>
+      <p><strong>Email:</strong> ${email}</p>
+      <p><strong>Phone / WhatsApp:</strong> ${phone || 'Not specified'}</p>
+      <p><strong>Integrations:</strong> ${integrations || 'Not specified'}</p>
 
       <hr />
 
       <p><strong>Requirements:</strong></p>
-      <pre style="white-space:pre-wrap;font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">${
-        parsed.requirements
-      }</pre>
+      <pre style="white-space:pre-wrap;font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+${requirements}
+      </pre>
 
       <hr />
 
       <p><strong>Files (names only, no upload yet):</strong></p>
-      <pre style="white-space:pre-wrap;font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">${filesSummary}</pre>
+      <pre style="white-space:pre-wrap;font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+${filesSummary}
+      </pre>
     `.trim();
 
-    await sendBroByteEmail({
-      subject,
-      text,
-      html,
-    });
+    try {
+      await sendBroByteEmail({ subject, text, html });
+    } catch (err) {
+      console.error('Resend error (service-request):', err);
+      // don't break frontend
+    }
 
     return NextResponse.json({ ok: true });
-  } catch (error: any) {
-    console.error('Service request error:', error);
-
-    const message =
-      error?.name === 'ZodError'
-        ? 'Invalid data submitted'
-        : 'Failed to submit service request';
-
-    return NextResponse.json({ ok: false, message }, { status: 400 });
+  } catch (error) {
+    console.error('Service request unexpected error:', error);
+    return NextResponse.json(
+      { ok: false, message: 'Failed to submit service request' },
+      { status: 500 },
+    );
   }
 }

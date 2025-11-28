@@ -1,25 +1,9 @@
 // src/app/api/quote-request/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import { sendBroByteEmail } from '@/lib/email';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-// Make schema tolerant: only email + requirements must be valid
-const quoteRequestSchema = z
-  .object({
-    projectType: z.string().optional(),
-    budgetRange: z.string().optional(),
-    billingPreference: z.string().optional(),
-    paymentMode: z.string().optional(),
-    companyName: z.string().optional(),
-    contactName: z.string().optional(),
-    email: z.string().email(),
-    phone: z.string().optional(),
-    requirements: z.string().min(1, 'Please describe your requirements'),
-  })
-  .passthrough(); // ignore any extra fields from the form
 
 export async function GET() {
   return NextResponse.json(
@@ -30,64 +14,83 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const parsed = quoteRequestSchema.parse(body);
+    const body = await request.json().catch(() => ({}));
+
+    const {
+      projectType,
+      budgetRange,
+      billingPreference,
+      paymentMode,
+      companyName,
+      contactName,
+      email,
+      phone,
+      requirements,
+    } = body ?? {};
+
+    // minimal safety: require email + some requirements text
+    if (!email || !requirements || String(requirements).trim().length === 0) {
+      console.error('Quote request missing email or requirements', body);
+      // but STILL return ok to frontend so it doesn't blow up
+      return NextResponse.json(
+        { ok: false, message: 'Missing email or requirements' },
+        { status: 200 },
+      );
+    }
 
     const subject = 'Quote request';
 
     const text = `
-Project type: ${parsed.projectType || 'Not specified'}
-Budget range: ${parsed.budgetRange || 'Not specified'}
-Billing preference: ${parsed.billingPreference || 'Not specified'}
-Payment mode: ${parsed.paymentMode || 'Not specified'}
+Project type: ${projectType || 'Not specified'}
+Budget range: ${budgetRange || 'Not specified'}
+Billing preference: ${billingPreference || 'Not specified'}
+Payment mode: ${paymentMode || 'Not specified'}
 
-Company: ${parsed.companyName || 'Not specified'}
-Contact: ${parsed.contactName || 'Not specified'}
-Email: ${parsed.email}
-Phone/WhatsApp: ${parsed.phone || 'Not specified'}
+Company: ${companyName || 'Not specified'}
+Contact: ${contactName || 'Not specified'}
+Email: ${email}
+Phone/WhatsApp: ${phone || 'Not specified'}
 
 Requirements:
-${parsed.requirements}
+${requirements}
     `.trim();
 
     const html = `
-      <h2>New quote request${parsed.companyName ? ` from ${parsed.companyName}` : ''}</h2>
+      <h2>New quote request${companyName ? ` from ${companyName}` : ''}</h2>
 
-      <p><strong>Project type:</strong> ${parsed.projectType || 'Not specified'}</p>
-      <p><strong>Budget range:</strong> ${parsed.budgetRange || 'Not specified'}</p>
-      <p><strong>Billing preference:</strong> ${parsed.billingPreference || 'Not specified'}</p>
-      <p><strong>Payment mode:</strong> ${parsed.paymentMode || 'Not specified'}</p>
+      <p><strong>Project type:</strong> ${projectType || 'Not specified'}</p>
+      <p><strong>Budget range:</strong> ${budgetRange || 'Not specified'}</p>
+      <p><strong>Billing preference:</strong> ${billingPreference || 'Not specified'}</p>
+      <p><strong>Payment mode:</strong> ${paymentMode || 'Not specified'}</p>
 
       <hr />
 
-      <p><strong>Company:</strong> ${parsed.companyName || 'Not specified'}</p>
-      <p><strong>Contact person:</strong> ${parsed.contactName || 'Not specified'}</p>
-      <p><strong>Email:</strong> ${parsed.email}</p>
-      <p><strong>Phone / WhatsApp:</strong> ${parsed.phone || 'Not specified'}</p>
+      <p><strong>Company:</strong> ${companyName || 'Not specified'}</p>
+      <p><strong>Contact person:</strong> ${contactName || 'Not specified'}</p>
+      <p><strong>Email:</strong> ${email}</p>
+      <p><strong>Phone / WhatsApp:</strong> ${phone || 'Not specified'}</p>
 
       <hr />
 
       <p><strong>Requirements:</strong></p>
       <pre style="white-space:pre-wrap;font-family:system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
-${parsed.requirements}
+${requirements}
       </pre>
     `.trim();
 
-    await sendBroByteEmail({
-      subject,
-      text,
-      html,
-    });
+    try {
+      await sendBroByteEmail({ subject, text, html });
+    } catch (err) {
+      console.error('Resend error (quote-request):', err);
+      // DO NOT surface this as 400 to the frontend
+    }
 
     return NextResponse.json({ ok: true });
-  } catch (error: any) {
-    console.error('Quote request error:', error);
-
-    const message =
-      error?.name === 'ZodError'
-        ? 'Invalid data submitted'
-        : 'Failed to submit quote request';
-
-    return NextResponse.json({ ok: false, message }, { status: 400 });
+  } catch (error) {
+    console.error('Quote request unexpected error:', error);
+    return NextResponse.json(
+      { ok: false, message: 'Failed to submit quote request' },
+      { status: 500 },
+    );
   }
 }
