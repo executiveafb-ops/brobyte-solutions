@@ -68,9 +68,11 @@ export function QuoteRequestForm() {
       }
 
       if (!response.ok || !data?.ok) {
-        const message =
-          (data && data.message) ||
-          Quote request failed with status ${response.status}. Please try again.;
+        const statusMessage =
+          'Quote request failed with status ' +
+          response.status +
+          '. Please try again.';
+        const message = (data && data.message) || statusMessage;
         throw new Error(message);
       }
 
