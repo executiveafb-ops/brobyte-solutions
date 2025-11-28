@@ -6,6 +6,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
+
 import {
   Form,
   FormField,
@@ -21,7 +22,6 @@ import { Button } from '@/components/ui/button';
 
 const serviceRequestSchema = z.object({
   serviceType: z.string().min(1, 'Please select a service type'),
-  // Simple enum to match your Zod version
   templateType: z.enum(['template', 'custom']),
   projectComplexity: z.string().optional(),
   budgetRange: z.string().optional(),
@@ -79,20 +79,18 @@ export function ServiceRequestForm() {
         }),
       });
 
-      const contentType = response.headers.get('content-type') || '';
       let data: any = null;
 
-      // ✅ Only try to parse JSON if the response is actually JSON
-      if (contentType.includes('application/json')) {
+      try {
         data = await response.json();
+      } catch (error) {
+        console.error('Non-JSON response from /api/service-request:', error);
       }
 
       if (!response.ok || !data?.ok) {
         const message =
-          data?.message ??
+          (data && data.message) ||
           Request failed with status ${response.status}. Please try again.;
-        // Or as a single line if you prefer:
-        // const message = data?.message ?? Request failed with status ${response.status}. Please try again.;
         throw new Error(message);
       }
 
@@ -101,26 +99,14 @@ export function ServiceRequestForm() {
           'Thank you — BroByte will review your requirements and respond with a plan & quote.',
       });
 
-      form.reset({
-        serviceType: '',
-        templateType: 'custom',
-        projectComplexity: '',
-        budgetRange: '',
-        timeline: '',
-        companyName: '',
-        contactName: '',
-        email: '',
-        phone: '',
-        integrations: '',
-        requirements: '',
-      });
+      form.reset();
       setFiles(null);
     } catch (error: any) {
       console.error('Service request submit error:', error);
       toast.error('Could not submit request', {
         description:
-          error.message ||
-          'Something went wrong on the server. Please try again later or contact us directly.',
+          error?.message ||
+          'Something went wrong while sending your request. Please try again or contact us directly.',
       });
     }
   }
@@ -155,12 +141,15 @@ export function ServiceRequestForm() {
                     <option value="ai">
                       AI chatbot / automation / internal assistant
                     </option>
-                    <option value="video">Video editing / content system</option>
+                    <option value="video">
+                      Video editing / content system
+                    </option>
                     <option value="multiple">Combination of several</option>
                   </select>
                 </FormControl>
                 <FormDescription className="text-[11px] text-slate-400">
-                  You can choose “Combination” if your project spans multiple areas.
+                  You can choose &quot;Combination&quot; if your project spans multiple
+                  areas.
                 </FormDescription>
                 <FormMessage className="text-[11px]" />
               </FormItem>
@@ -180,14 +169,15 @@ export function ServiceRequestForm() {
                     <button
                       type="button"
                       onClick={() => field.onChange('template')}
-                      className={
-                        'rounded-md border px-3 py-2 text-left ' +
-                        (field.value === 'template'
+                      className={`rounded-md border px-3 py-2 text-left ${
+                        field.value === 'template'
                           ? 'border-cyan-500 bg-cyan-500/10 text-cyan-100'
-                          : 'border-slate-700 bg-slate-950 text-slate-200')
-                      }
+                          : 'border-slate-700 bg-slate-950 text-slate-200'
+                      }`}
                     >
-                      <span className="block font-medium">Starter template</span>
+                      <span className="block font-medium">
+                        Starter template
+                      </span>
                       <span className="text-[11px] text-slate-400">
                         Faster, opinionated setup with tweaks.
                       </span>
@@ -195,12 +185,11 @@ export function ServiceRequestForm() {
                     <button
                       type="button"
                       onClick={() => field.onChange('custom')}
-                      className={
-                        'rounded-md border px-3 py-2 text-left ' +
-                        (field.value === 'custom'
+                      className={`rounded-md border px-3 py-2 text-left ${
+                        field.value === 'custom'
                           ? 'border-cyan-500 bg-cyan-500/10 text-cyan-100'
-                          : 'border-slate-700 bg-slate-950 text-slate-200')
-                      }
+                          : 'border-slate-700 bg-slate-950 text-slate-200'
+                      }`}
                     >
                       <span className="block font-medium">Fully custom</span>
                       <span className="text-[11px] text-slate-400">
@@ -234,7 +223,9 @@ export function ServiceRequestForm() {
                     <option value="light">Light (MVP / small scope)</option>
                     <option value="standard">Standard business system</option>
                     <option value="advanced">Advanced / multi-team</option>
-                    <option value="enterprise">Enterprise / multi-country</option>
+                    <option value="enterprise">
+                      Enterprise / multi-country
+                    </option>
                   </select>
                 </FormControl>
                 <FormMessage className="text-[11px]" />
@@ -340,7 +331,9 @@ export function ServiceRequestForm() {
             name="email"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-xs text-slate-200">Work email</FormLabel>
+                <FormLabel className="text-xs text-slate-200">
+                  Work email
+                </FormLabel>
                 <FormControl>
                   <Input
                     {...field}
@@ -414,8 +407,8 @@ export function ServiceRequestForm() {
                 />
               </FormControl>
               <FormDescription className="text-[11px] text-slate-400">
-                Don&apos;t worry about perfect wording — write in your own language and we&apos;ll
-                structure it.
+                Don&apos;t worry about perfect wording — write in your own
+                language and we&apos;ll structure it.
               </FormDescription>
               <FormMessage className="text-[11px]" />
             </FormItem>
@@ -434,8 +427,8 @@ export function ServiceRequestForm() {
             className="mt-1 block w-full cursor-pointer rounded-md border border-dashed border-slate-700 bg-slate-950 px-3 py-2 text-[11px] text-slate-300 file:mr-2 file:rounded-md file:border-0 file:bg-slate-800 file:px-3 file:py-1 file:text-xs file:text-slate-100 hover:border-cyan-500"
           />
           <p className="text-[11px] text-slate-400">
-            You can attach requirement docs, sketches, or existing reports. We&apos;ll include their
-            filenames in our internal summary for now.
+            You can attach requirement docs, sketches, or existing reports.
+            We&apos;ll include their filenames in our internal summary for now.
           </p>
           {files && files.length > 0 && (
             <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[11px] text-slate-300">
@@ -458,7 +451,9 @@ export function ServiceRequestForm() {
           </Button>
           <p className="text-[11px] text-slate-400">
             We usually respond within{' '}
-            <span className="font-medium text-slate-200">1–3 business hours.</span>
+            <span className="font-medium text-slate-200">
+              1–3 business hours.
+            </span>
           </p>
         </div>
       </form>
